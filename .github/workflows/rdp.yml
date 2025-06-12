@@ -1,4 +1,4 @@
-name: Free RDP with Remote.it
+name: Free RDP via Remote.it
 
 on:
   workflow_dispatch:
@@ -6,22 +6,25 @@ on:
 jobs:
   rdp:
     runs-on: windows-latest
+    env:
+      REMOTEIT_EMAIL: ${{ secrets.REMOTEIT_EMAIL }}
+      REMOTEIT_PASSWORD: ${{ secrets.REMOTEIT_PASSWORD }}
 
     steps:
-      - name: Enable RDP and Set Password
+      - name: Enable RDP & Set Password
+        shell: powershell
         run: |
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name 'fDenyTSConnections' -Value 0
+          Set-ItemProperty HKLM:\System\CurrentControlSet\Control\Terminal Server -Name 'fDenyTSConnections' -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString "P@ssw0rd!" -AsPlainText -Force)
-          
-      - name: Install Remote.it
-        run: |
-          Invoke-WebRequest -Uri https://downloads.remote.it/cli/remoteit-windows.zip -OutFile remoteit.zip
-          Expand-Archive remoteit.zip -DestinationPath ./remoteit
+          Set-LocalUser -Name 'runneradmin' -Password (ConvertTo-SecureString "P@ssw0rd!" -AsPlainText -Force)
 
-      - name: Launch Remote.it Tunnel
+      - name: Install remote.it
+        shell: powershell
+        run: winget install --id=remoteit.remoteit -e --silent
+
+      - name: Configure remote.it
+        shell: powershell
         run: |
-          cd remoteit
-          .\remoteit.exe agent install --silent
-          .\remoteit.exe agent start
-          .\remoteit.exe connect --rdp runneradmin P@ssw0rd!
+          remoteit register --email $Env:REMOTEIT_EMAIL --password $Env:REMOTEIT_PASSWORD
+          remoteit service add --name RDP --protocol tcp --port 3389
+          remoteit connect --name RDP
